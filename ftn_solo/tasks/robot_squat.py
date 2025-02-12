@@ -123,11 +123,7 @@ class RobotMove(TaskBase):
         v2 = np.array([0.15, -0.20, -0.25])
         v3 = np.array([-0.15, 0.20, -0.25])
         v4 = np.array([-0.15, -0.20, -0.25])
-        odmes1 = self.pin_robot.moveSE3(self.R_y, v1)
-        odmes2 = self.pin_robot.moveSE3(self.R_y, v2)
-        odmes3 = self.pin_robot.moveSE3(self.R_y, v3)
-        odmes4 = self.pin_robot.moveSE3(self.R_y, v4)
-        self.steps = [odmes1, odmes2, odmes3, odmes4]
+        self.steps = [v1, v2, v3, v4]
 
         return self.steps
 
@@ -176,25 +172,26 @@ class RobotMove(TaskBase):
             return np.array([0.196 if "FL" in leg or "FR" in leg else -0.196, x_pos, z_pos]), \
                 np.array([x_vel, 0, z_vel]), np.array([x_acc, 0, z_acc])
 
-    def compute_control(self, t, position, velocity, sensors):
+    def compute_control(self, t, position, velocity,sensors):
 
-        leg_pos = []
-        leg_acc = []
+        self.joint_controller.compute_kinematics(position,velocity)
 
         if not self.start:
-            tourques = self.joint_controller.rnea(
-                self.steps, leg_acc, position, velocity, sensors['attitude'], t, 0.7e6)
-            return tourques
+
+            for x,leg in enumerate(["FL", "FR", "HL", "HR"]):
+
+                ddq = self.joint_controller.compute_acceleration(leg,self.steps[x],0*vel,0*acc)
+               
+            tourques = self.joint_controller.get_tourque(ddq)
 
         else:
-
+  
             for leg in ["FL", "FR", "HL", "HR"]:
 
                 pos,vel,acc = self.get_trajectory(t, leg, 0.06, 0.06)
-                
-                self.joint_controller.compute_torques(t, position, velocity, sensors)
+
+                ddq = self.joint_controller.compute_acceleration(leg,pos,vel,acc)
                
-            tourques = self.joint_controller.rnea(
-                leg_pos, leg_acc, position, velocity, sensors['attitude'], t, 2e6)
+            tourques = self.joint_controller.get_tourque(ddq)
 
             return tourques

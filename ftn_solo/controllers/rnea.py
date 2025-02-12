@@ -20,45 +20,43 @@ class RneAlgorithm(PinocchioWrapper):
         self.q = np.zeros(19)
         self.dq_curr = np.array([])
         self.dq = np.array([])
-        self.ndq = np.zeros(18)
+        self.nddq = np.zeros(18)
         self.J_real =np.zeros((3, 18))
-        self.J_dot =np.zeros((3, 18))
         self.q_base = np.array([0,0,0,0,0,0,1])
         self.dq_base = np.array([0,0,0,0,0,0])
         self.tau_con = np.zeros(12)
+        self.Kp=0
+        self.Kd=0
        
     def compute_kinematics(self,qcurr, dqcurr):
         # qbase = np.array([qbase[1],qbase[2],qbase[3],qbase[0]])
         # self.q = np.concatenate((np.concatenate((self.q_base,qbase)), qcurr))
         self.q = np.concatenate((self.q_base,qcurr))
         self.dq_curr = np.concatenate((self.dq_base,dqcurr))
-        self.ndq.fill(0)
         self.J_real.fill(0)
-        self.J_dot.fill(0)
         self.frame_forward_kinematics(self.q, self.dq_curr, self.end_eff_ids)
         self.compute_frame_jacobian(self.q,self.dq_curr)
         self.compute_non_linear(self.q, self.dq_curr) 
 
-    def compute_torques(self, end_eff_id, qcurr, dqcurr,t,kp):
+    def compute_acceleration(self,frame_id,poz,vel,acc):
+
+        current_poz = self.data.oMf[frame_id].translation
+        current_vel = self.get_frame_velocity(frame_id)
+        J_real,J_dot = self.get_frame_jacobian(frame_id)
+        
+        ref_acc = acc + self.Kp*(poz - current_poz) + self.Kd*(vel - current_vel[:3])
+
+        ddq = np.dot(np.linalg.pinv(J_real),ref_acc - J_dot[:3])
+        
+        return ddq
+        
+        
 
         
-        J_real,J_dot = self.get_frame_jacobian(end_eff_id)
-        
-       
-        self.ndq += self.dq
-        self.J_real += J_real
-        self.J_dot += J_dot
+      
     
-        # self.logger.info(format(np.linalg.matrix_rank(J_real)))
-        q = self.pinIntegrate(self.q, self.ndq)
-      
-        q_joints = q[7:19]
-       
-        ddq = self.pd_controller(q_joints, self.dq[6:], qcurr, dqcurr,t,kp)
+    def get_tourque(self,ddq):
 
-        
-      
-
-        self.tau = self.compute_recrusive_newtone_euler(self.ndq, ddq,self.Fv,self.B,self.J_real[:3,6:],self.J_dot[:3,6:])
+        self.tau = self.compute_recrusive_newtone_euler(self.ndq, ddq,self.Fv,self.B)
         return self.tau 
  
