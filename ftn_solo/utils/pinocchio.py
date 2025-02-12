@@ -57,56 +57,30 @@ class PinocchioWrapper(object):
 
     
 
-    def framesForwardKinematics(self, q, dq, joint_ids, goal_positions):
+    def frame_forward_kinematics(self, q, dq):
         pin.framesForwardKinematics(self.model, self.data, q)
-        pin.forwardKinematics(self.model, self.data, q, dq)
+        pin.forwardKinematics(self.model, self.data, q, dq,0*dq)
         
-        self.nu.clear()
-        for x,joint_id in enumerate(joint_ids):
-            iMl = self.data.oMf[joint_id]
-            iMd = iMl.actInv(goal_positions[x])
-            err = iMd.translation - iMl.translation
+        # self.nu.clear()
+        # for x,joint_id in enumerate(joint_ids):
+        #     iMl = self.data.oMf[joint_id]
+        #     iMd = iMl.actInv(goal_positions[x])
+        #     err = iMd.translation - iMl.translation
             
-            self.nu.append(pin.log(iMd).vector)
+        #     self.nu.append(pin.log(iMd).vector)
             
-        return self.nu
+        # return self.nu
 
     
-    def compute_state(self,q, joint_ids, goal_positions, base_frame):
-        self.nu.clear()
-        self.J_list.clear()
-        self.J.fill(0)
-
-        pin.framesForwardKinematics(self.model, self.data, q)
-        self.computeFrameJacobian(q)
-      
-
-        for x,joint in enumerate(joint_ids):
-            iBd = self.data.oMf[base_frame]
-            iMl = self.data.oMf[joint]
-            iMr = iBd.actInv(iMl)
-            iMd = iMl.actInv(goal_positions[x])
-            
-            if x == 0:
-                self.calculate_delta_error(
-                    goal_positions[x].translation, iMr.translation)
-            
-            nu = (pin.log(iMd).vector).reshape(6, 1)
-
-            self.nu.append(nu)
-           
-            self.J=pin.getFrameJacobian(self.model,self.data,joint,self.fr)
-            self.J_list.append(self.J)
-        
-        return self.nu,self.J_list
+   
 
 
-    def computeFrameJacobian(self, q,dq):
+    def compute_frame_jacobian(self, q,dq):
         pin.computeJointJacobians(self.model, self.data, q)
         pin.computeJointJacobiansTimeVariation(self.model, self.data, q, dq)
         pin.updateFramePlacements(self.model, self.data)
 
-    def computeNonLinear(self, q, dq):
+    def compute_non_linear(self, q, dq):
         self.M = pin.crba(self.model, self.data, q)
         self.C = pin.computeCoriolisMatrix(self.model, self.data, q, dq)
         self.G = pin.computeGeneralizedGravity(self.model, self.data, q)
@@ -126,37 +100,6 @@ class PinocchioWrapper(object):
      
         return  self.J[:3,:], J_dot[:3,:]
     
-
-    def get_acceleration(self, q, dq, tau_ref):
-        
-        pin.aba(self.model, self.data, q, dq, tau_ref)
-        return self.data.ddq
-
-    def get_delta_error(self):
-        return self.delta_error
-    
-    def get_tau_constraint(self,J_real,J_dot,dq):
-        h = np.dot(self.C[6:,6:], dq[6: ]) + self.G[6:]
-        Jdot_theta = np.dot(J_dot[:,6:], dq[6:])
-        J = J_real[:,6:]
-        zero_block = np.zeros((J.shape[0], J.shape[0]))
-        b = np.concatenate((-h, -Jdot_theta))  
-        a = np.block([
-            [self.M[6:,6:],J.T],
-            [J,zero_block]
-        ])
-
-        epsilon = 1e-6  # Small regularization constant
-        a_reg = a + epsilon * np.eye(a.shape[0])
-
-       
-
-        solve = np.linalg.solve(a_reg, b)
-        ddq = solve[:self.M[6:,6:].shape[0]]
-        lamba = solve[self.M[6:,6:].shape[0]:]
-        
-        tau_constraint = np.dot(J.T, lamba)
-        return tau_constraint
 
 
     def pd_controller(self, ref_pos, ref_vel, position, velocity,t,kp):

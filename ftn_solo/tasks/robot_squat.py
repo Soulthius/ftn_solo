@@ -16,7 +16,7 @@ class RobotMove(TaskBase):
             num_joints, self.config["joint_controller"], robot_version, logger, dt)
 
         
-        self.splines = {leg: {"arc": {}, "line": {}} for leg in ["fl", "fr", "hl", "hr"]}
+        self.splines = {leg: {"arc": {}, "line": {}} for leg in ["FL", "FR", "HL", "HR"]}
      
 
         self.steps = []
@@ -86,28 +86,28 @@ class RobotMove(TaskBase):
         for leg in self.splines.keys():
 
             if self.move_x:
-                if leg == "fl" or leg == "fr":
+                if leg == "FL" or leg == "FR":
                     x_arc = x_f
                     x_line = x_b
                 else:
                     x_arc = -x_b
                     x_line = -x_f
             elif self.move_y:
-                if leg == "fr" or leg == "hr":
+                if leg == "FR" or leg == "HR":
                     x_arc = -x_f
                     x_line = -x_b
                 else:
                     x_arc = x_b
                     x_line = x_f
             else:
-                if leg == "hr" or leg == "fl":
+                if leg == "HR" or leg == "FL":
                     x_arc = x_f
                     x_line = x_b
                 else:
                     x_arc = x_b
                     x_line = x_f
 
-                if leg == "fr" or leg == "hr":
+                if leg == "FR" or leg == "HR":
                     x_arc = -x_arc
                     x_line = -x_line
 
@@ -145,7 +145,7 @@ class RobotMove(TaskBase):
             s_ddot = (60 * (t_mod / T) - 180 * (t_mod / T) **
                       2 + 120 * (t_mod / T)**3) / (T**2)
 
-            motion = "arc" if leg in ["fr", "hl"] else "line"
+            motion = "arc" if leg in ["FR", "HL"] else "line"
 
         else:
             t_d = t_mod - T
@@ -156,10 +156,13 @@ class RobotMove(TaskBase):
             s_ddot = (60 * (t_d / T2) - 180 * (t_d / T2) **
                       2 + 120 * (t_d / T2)**3) / (T2**2)
 
-            motion = "line" if leg in ["fr", "hl"] else "arc"
+            motion = "line" if leg in ["FR", "HL"] else "arc"
 
         x_pos = self.splines[leg][motion]["x"](s_t)
         z_pos = self.splines[leg][motion]["z"](s_t)
+
+        x_vel = self.splines(s_t, 1) * s_dot
+        z_vel = self.splines(s_t, 1) * s_dot
 
         x_acc = self.splines[leg][motion]["x"](
             s_t, 2) * (s_dot**2) + self.splines[leg][motion]["x"](s_t, 1) * s_ddot
@@ -167,11 +170,11 @@ class RobotMove(TaskBase):
             s_t, 2) * (s_dot**2) + self.splines[leg][motion]["z"](s_t, 1) * s_ddot
 
         if self.move_x:
-            return np.array([x_pos, 0.1469 if "fl" in leg or "hl" in leg else -0.1469, z_pos]), \
-                np.array([x_acc, 0, z_acc])
+            return np.array([x_pos, 0.1469 if "FL" in leg or "HL" in leg else -0.1469, z_pos]), \
+                np.array([x_vel, 0, z_vel]), np.array([x_acc, 0, z_acc])
         else:
-            return np.array([0.196 if "fl" in leg or "fr" in leg else -0.196, x_pos, z_pos]), \
-                np.array([x_acc, 0, z_acc])
+            return np.array([0.196 if "FL" in leg or "FR" in leg else -0.196, x_pos, z_pos]), \
+                np.array([x_vel, 0, z_vel]), np.array([x_acc, 0, z_acc])
 
     def compute_control(self, t, position, velocity, sensors):
 
@@ -185,12 +188,12 @@ class RobotMove(TaskBase):
 
         else:
 
-            for leg in ["fl", "fr", "hl", "hr"]:
+            for leg in ["FL", "FR", "HL", "HR"]:
 
-                pos, acc = self.get_trajectory(t, leg, 0.06, 0.06)
-                leg_pos.append(self.pin_robot.moveSE3(self.R_y, pos))
-                leg_acc.append(acc)
-
+                pos,vel,acc = self.get_trajectory(t, leg, 0.06, 0.06)
+                
+                self.joint_controller.compute_torques(t, position, velocity, sensors)
+               
             tourques = self.joint_controller.rnea(
                 leg_pos, leg_acc, position, velocity, sensors['attitude'], t, 2e6)
 

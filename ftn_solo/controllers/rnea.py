@@ -27,9 +27,7 @@ class RneAlgorithm(PinocchioWrapper):
         self.dq_base = np.array([0,0,0,0,0,0])
         self.tau_con = np.zeros(12)
        
-
-    def rnea(self, steps, acc, qcurr, dqcurr,qbase,t,kp):
-
+    def compute_kinematics(self,qcurr, dqcurr):
         # qbase = np.array([qbase[1],qbase[2],qbase[3],qbase[0]])
         # self.q = np.concatenate((np.concatenate((self.q_base,qbase)), qcurr))
         self.q = np.concatenate((self.q_base,qcurr))
@@ -37,19 +35,20 @@ class RneAlgorithm(PinocchioWrapper):
         self.ndq.fill(0)
         self.J_real.fill(0)
         self.J_dot.fill(0)
-        new = self.framesForwardKinematics(self.q, self.dq_curr, self.end_eff_ids, steps)
-        self.computeFrameJacobian(self.q,self.dq_curr)
-        self.computeNonLinear(self.q, self.dq_curr)
+        self.frame_forward_kinematics(self.q, self.dq_curr, self.end_eff_ids)
+        self.compute_frame_jacobian(self.q,self.dq_curr)
+        self.compute_non_linear(self.q, self.dq_curr) 
 
-        for x,end_eff_id in enumerate(self.end_eff_ids):
-            J_real,J_dot = self.get_frame_jacobian(end_eff_id)
-            self.dq = np.dot(np.linalg.pinv(J_real), new[x][:3])
-            # dddq = np.dot(J_real,acc[x])
-            # self.logger.info("ddq: {}".format(dddq))
-            self.ndq += self.dq
-            self.J_real += J_real
-            self.J_dot += J_dot
+    def compute_torques(self, end_eff_id, qcurr, dqcurr,t,kp):
+
         
+        J_real,J_dot = self.get_frame_jacobian(end_eff_id)
+        
+       
+        self.ndq += self.dq
+        self.J_real += J_real
+        self.J_dot += J_dot
+    
         # self.logger.info(format(np.linalg.matrix_rank(J_real)))
         q = self.pinIntegrate(self.q, self.ndq)
       
