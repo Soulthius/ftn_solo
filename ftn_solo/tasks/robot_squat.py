@@ -18,7 +18,7 @@ class RobotMove(TaskBase):
         
         self.splines = {leg: {"arc": {}, "line": {}} for leg in ["FL", "FR", "HL", "HR"]}
      
-
+        
         self.steps = []
         self.step = 0
         self.eps = 0.0018
@@ -157,8 +157,8 @@ class RobotMove(TaskBase):
         x_pos = self.splines[leg][motion]["x"](s_t)
         z_pos = self.splines[leg][motion]["z"](s_t)
 
-        x_vel = self.splines(s_t, 1) * s_dot
-        z_vel = self.splines(s_t, 1) * s_dot
+        x_vel = self.splines[leg][motion]["x"](s_t, 1) * s_dot
+        z_vel = self.splines[leg][motion]["z"](s_t, 1) * s_dot
 
         x_acc = self.splines[leg][motion]["x"](
             s_t, 2) * (s_dot**2) + self.splines[leg][motion]["x"](s_t, 1) * s_ddot
@@ -175,23 +175,29 @@ class RobotMove(TaskBase):
     def compute_control(self, t, position, velocity,sensors):
 
         self.joint_controller.compute_kinematics(position,velocity)
-
+        ndqq = np.zeros(18)
+        ndq = np.zeros(18)
         if not self.start:
 
             for x,leg in enumerate(["FL", "FR", "HL", "HR"]):
 
-                ddq = self.joint_controller.compute_acceleration(leg,self.steps[x],0*vel,0*acc)
+                dq,ddq = self.joint_controller.compute_acceleration(leg,self.steps[x],0*self.steps[x],0*self.steps[x])
+                ndqq += ddq
+                ndq += dq
                
-            tourques = self.joint_controller.get_tourque(ddq)
+            tourques = self.joint_controller.get_tourque(ndq,ddq)
 
         else:
   
             for leg in ["FL", "FR", "HL", "HR"]:
 
-                pos,vel,acc = self.get_trajectory(t, leg, 0.06, 0.06)
+                pos,vel,acc = self.get_trajectory(t, leg, 5,5)
 
-                ddq = self.joint_controller.compute_acceleration(leg,pos,vel,acc)
-               
-            tourques = self.joint_controller.get_tourque(ddq)
+                dq,ddq = self.joint_controller.compute_acceleration(leg,pos,vel,acc)
+                ndqq += ddq
+                ndq += dq
+
+            self.logger.info(format(ndqq))
+            tourques = self.joint_controller.get_tourque(ndq,ndqq)
 
             return tourques
