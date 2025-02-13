@@ -25,8 +25,8 @@ class RneAlgorithm(PinocchioWrapper):
         self.q_base = np.array([0,0,0,0,0,0,1])
         self.dq_base = np.array([0,0,0,0,0,0])
         self.tau_con = np.zeros(12)
-        self.Kp=0
-        self.Kd=0
+        self.Kp=0.01
+        self.Kd=0.02
        
     def compute_kinematics(self,qcurr, dqcurr):
         # qbase = np.array([qbase[1],qbase[2],qbase[3],qbase[0]])
@@ -44,10 +44,16 @@ class RneAlgorithm(PinocchioWrapper):
         current_poz = self.data.oMf[frame_id].translation
         current_vel = self.get_frame_velocity(frame_id)
         J_real,J_dot = self.get_frame_jacobian(frame_id)
+        pos_diff = poz - current_poz
+        vel_diff = vel - current_vel.linear
         
-        ref_acc = acc + self.Kp*(poz - current_poz) + self.Kd*(vel - current_vel.linear)
+        ref_acc =  self.Kp*pos_diff + self.Kd*vel_diff
+        acc_diff = ref_acc - J_dot
         dq = np.dot(np.linalg.pinv(J_real),self.Kp*(poz - current_poz)) 
-        ddq = np.dot(np.linalg.pinv(J_real),ref_acc - J_dot)
+        ddq = np.dot(np.linalg.pinv(J_real),acc_diff)
+        self.logger.info("poz: {}".format(pos_diff))
+        self.logger.info("current_poz: {}".format(vel_diff))
+        self.logger.info("pos_diff: {}".format(ref_acc))
         
         return dq,ddq
         
