@@ -32,7 +32,7 @@ class PinocchioWrapper(object):
 
         self.base_link = self.model.getFrameId("base_link")
 
-        self.fr = pin.ReferenceFrame.LOCAL
+        self.fr = pin.ReferenceFrame.LOCAL_WORLD_ALIGNED
 
         # Parameters for IK
         self.DT = 0.01
@@ -75,14 +75,15 @@ class PinocchioWrapper(object):
     
     def get_frame_jacobian(self, frame_id):
         self.J.fill(0)
+        J_dot = np.zeros(18)
         self.J = pin.getFrameJacobian(self.model,self.data,frame_id,self.fr)
-        J_dot = pin.getFrameAcceleration(self.model, self.data,frame_id,self.fr)
-        # self.logger.info("Ades: {}".format(ades))
+        J_dot = pin.getFrameJacobianTimeVariation(self.model, self.data,frame_id,self.fr)
         
-        # self.J[:, :6] = 0
+        
+        self.J[:, :6] = 0
       
      
-        return  self.J[:3,6:], J_dot.linear
+        return  self.J[:3,:], J_dot[:3,6:]
     
     def get_frame_velocity(self,frame_id):
         return pin.getFrameVelocity(self.model, self.data,frame_id,self.fr)
@@ -146,9 +147,9 @@ class PinocchioWrapper(object):
 
 
 # 
-        tau = np.dot(self.M[6:, 6:], ddq) + np.dot(self.C[6:, 6:], dq) + np.dot(Fv,dq) + B + self.G[6:]
+        tau = np.dot(self.M[6:, 6:], ddq[6:]) + np.dot(self.C[6:, 6:], dq[6:]) + np.dot(Fv,dq[6:]) + B + self.G[6:]
 
-        # self.logger.info("tau_test: {}".format(tau_test))
+        self.logger.info("tau_test: {}".format(tau))
 
         # return np.clip(tau, -self.max_tau, self.max_tau)
         # return tau[6:]

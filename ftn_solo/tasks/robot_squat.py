@@ -175,8 +175,8 @@ class RobotMove(TaskBase):
     def compute_control(self, t, position, velocity,sensors):
 
         self.joint_controller.compute_kinematics(position,velocity)
-        ndqq = np.zeros(12)
-        ndq = np.zeros(12)
+        ndqq = np.zeros(18)
+        ndq = np.zeros(18)
         if not self.start:
 
             for x,leg in enumerate(["FL", "FR", "HL", "HR"]):
@@ -189,14 +189,15 @@ class RobotMove(TaskBase):
 
         else:
   
-            for leg in ["FL", "FR", "HL", "HR"]:
+            for leg in ["FL", "FL", "FL", "FL"]:
 
                 pos,vel,acc = self.get_trajectory(t, leg, 1,1)
 
                 dq,ddq = self.joint_controller.compute_acceleration(leg,pos,vel,acc)
-                ndqq += ddq
-                ndq += dq
+                # ndqq += ddq
+                # ndq += dq
 
-            tourques = self.joint_controller.get_tourque(ndq,ndqq)
+            self.logger.info("Final ddq: {}".format(ddq))
+            tourques = self.joint_controller.get_tourque(dq,ddq)
 
             return tourques
