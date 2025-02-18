@@ -25,8 +25,8 @@ class RneAlgorithm(PinocchioWrapper):
         self.q_base = np.array([0,0,0,0,0,0,1])
         self.dq_base = np.array([0,0,0,0,0,0])
         self.tau_con = np.zeros(12)
-        self.Kp=10
-        self.Kd=2
+        self.Kp=3000000
+        self.Kd=200
        
     def compute_kinematics(self,qcurr, dqcurr):
         # qbase = np.array([qbase[1],qbase[2],qbase[3],qbase[0]])
@@ -39,34 +39,40 @@ class RneAlgorithm(PinocchioWrapper):
         self.compute_non_linear(self.q, self.dq_curr) 
 
     def compute_acceleration(self,joint_id,poz,vel,acc):
-        
         frame_id = self.model.getFrameId(joint_id + "_ANKLE")
-        current_poz = self.data.oMf[frame_id].translation
+        current_poz = self.data.oMf[frame_id]
         current_vel = self.get_frame_velocity(frame_id)
         J_real,J_dot = self.get_frame_jacobian(frame_id)
 
-        pos_diff = poz - current_poz
-        vel_diff = vel - current_vel.linear
+        self.logger.info("Goal poz:{}".format(poz))
 
-        dq = np.dot(np.linalg.pinv(J_real),pos_diff)
-
-        a_real = np.dot(J_dot,dq[6:])
-
-        ref_acc = self.Kp*pos_diff + self.Kd*vel_diff
-        acc_diff = ref_acc - a_real
-         
-        ddq = np.dot(np.linalg.pinv(J_real),acc_diff)
-
-        self.logger.info("a_real: {}".format(a_real))
-        self.logger.info("ref_acc: {}".format(ref_acc))
-        self.logger.info("acc_diff: {}".format(acc_diff))
-        self.logger.info("ddq: {}".format(ddq))
+        iMd = current_poz.actInv(poz)
+            
+        pos_diff= self.pin_log(iMd)
         
-        return dq,ddq
+        # pos_diff = poz - current_poz
+        # vel_diff = vel - current_vel.linear
+
+        # ref_acc =  self.Kp*pos_diff + self.Kd*vel_diff
+        # acc_diff = ref_acc - J_dot
+        dq = np.dot(np.linalg.pinv(J_real),pos_diff[:3])
+        q = self.pinIntegrate(self.q,dq)
+        # ref_ddq =  self.Kp*(self.q[7:] - q[7:]) + self.Kd*(self.dq_curr[6:]-dq[6:])
+        # ddq = np.dot(np.linalg.pinv(J_real),acc_diff)
+
+
+        # self.logger.info("ref_acc: {}".format(ref_ddq))
+        
+        # self.logger.info("acc_diff: {}".format(acc_diff))
+        # self.logger.info("ddq: {}".format(ddq))
+        # self.logger.info("acc:{}".format(acc))
+        
+        return q,dq
         
         
 
-        
+    def get_acceleration(self,q,dq):
+        return self.Kp*(self.q[7:] - q[7:]) + self.Kd*(self.dq_curr[6:]-dq[6:]) 
       
     
     def get_tourque(self,dq,ddq):

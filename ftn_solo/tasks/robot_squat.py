@@ -123,7 +123,11 @@ class RobotMove(TaskBase):
         v2 = np.array([0.15, -0.20, -0.25])
         v3 = np.array([-0.15, 0.20, -0.25])
         v4 = np.array([-0.15, -0.20, -0.25])
-        self.steps = [v1, v2, v3, v4]
+        odmes1 = self.pin_robot.moveSE3(self.R_y, v1)
+        odmes2 = self.pin_robot.moveSE3(self.R_y, v2)
+        odmes3 = self.pin_robot.moveSE3(self.R_y, v3)
+        odmes4 = self.pin_robot.moveSE3(self.R_y, v4)
+        self.steps = [odmes1, odmes2, odmes3, odmes4]
 
         return self.steps
 
@@ -172,32 +176,36 @@ class RobotMove(TaskBase):
             return np.array([0.196 if "FL" in leg or "FR" in leg else -0.196, x_pos, z_pos]), \
                 np.array([x_vel, 0, z_vel]), np.array([x_acc, 0, z_acc])
 
+
     def compute_control(self, t, position, velocity,sensors):
 
         self.joint_controller.compute_kinematics(position,velocity)
-        ndqq = np.zeros(18)
+        nq = np.zeros(19)
         ndq = np.zeros(18)
         if not self.start:
-
             for x,leg in enumerate(["FL", "FR", "HL", "HR"]):
 
-                dq,ddq = self.joint_controller.compute_acceleration(leg,self.steps[x],0*self.steps[x],0*self.steps[x])
-                ndqq += ddq
+                q,dq = self.joint_controller.compute_acceleration(leg,self.steps[x],0,0)
+                nq += q
                 ndq += dq
-               
+
+            ddq = self.joint_controller.get_acceleration(nq,ndq)
+            self.logger.info("Final ddq: {}".format(ddq))
             tourques = self.joint_controller.get_tourque(ndq,ddq)
 
-        else:
+
   
-            for leg in ["FL", "FL", "FL", "FL"]:
-
+        else:
+            for leg in ["FL", "FR", "HL", "HR"]:
                 pos,vel,acc = self.get_trajectory(t, leg, 1,1)
+                pos_mS3 = self.pin_robot.moveSE3(self.R_y,pos)
+                q,dq = self.joint_controller.compute_acceleration(leg,pos_mS3,vel,acc)
+                nq += q
+                ndq += dq
 
-                dq,ddq = self.joint_controller.compute_acceleration(leg,pos,vel,acc)
-                # ndqq += ddq
-                # ndq += dq
-
+            ddq = self.joint_controller.get_acceleration(nq,ndq)
             self.logger.info("Final ddq: {}".format(ddq))
-            tourques = self.joint_controller.get_tourque(dq,ddq)
+            tourques = self.joint_controller.get_tourque(ndq,ddq)
+            
 
             return tourques

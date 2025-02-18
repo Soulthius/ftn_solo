@@ -40,7 +40,7 @@ class PinocchioWrapper(object):
         self.k_max = 0.00000002
         self.J = np.zeros((6, 18))
         self.J_list=[]
-        self.max_tau = 10.0
+        self.max_tau = 2.0
 
     def mass(self, q):
         return pin.crba(self.model, self.data, q)
@@ -54,6 +54,9 @@ class PinocchioWrapper(object):
 
     def pinIntegrate(self, q, v):
         return pin.integrate(self.model, q, v*self.DT)
+    
+    def pin_log(self,poz):
+        return pin.log(poz).vector
 
     
 
@@ -83,7 +86,7 @@ class PinocchioWrapper(object):
         self.J[:, :6] = 0
       
      
-        return  self.J[:3,:], J_dot[:3,6:]
+        return  self.J[:3], J_dot.transpose
     
     def get_frame_velocity(self,frame_id):
         return pin.getFrameVelocity(self.model, self.data,frame_id,self.fr)
@@ -147,10 +150,10 @@ class PinocchioWrapper(object):
 
 
 # 
-        tau = np.dot(self.M[6:, 6:], ddq[6:]) + np.dot(self.C[6:, 6:], dq[6:]) + np.dot(Fv,dq[6:]) + B + self.G[6:]
+        tau = np.dot(self.M[6:, 6:], ddq) + np.dot(self.C[6:, 6:], dq[6:]) + np.dot(Fv,dq[6:]) + B + self.G[6:]
 
         self.logger.info("tau_test: {}".format(tau))
 
-        # return np.clip(tau, -self.max_tau, self.max_tau)
+        return np.clip(tau, -self.max_tau, self.max_tau)
         # return tau[6:]
         return tau

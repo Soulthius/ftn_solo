@@ -71,7 +71,7 @@ z_vel_data = []
 x_acc_data = []
 z_acc_data = []
 
-for t in np.linspace(0, 2 * T_total, 500):
+for t in np.linspace(0,  T_total, 500):
     # Evaluate trajectory at current time
     x, z, x_vel, z_vel, x_acc, z_acc = evaluate_trajectory(t)
     print(x_acc)
