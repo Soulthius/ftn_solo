@@ -56,7 +56,6 @@ class RneAlgorithm(PinocchioWrapper):
         # ref_acc =  self.Kp*pos_diff + self.Kd*vel_diff
         # acc_diff = ref_acc - J_dot
         dq = np.dot(np.linalg.pinv(J_real),pos_diff[:3])
-        q = self.pinIntegrate(self.q,dq)
         # ref_ddq =  self.Kp*(self.q[7:] - q[7:]) + self.Kd*(self.dq_curr[6:]-dq[6:])
         # ddq = np.dot(np.linalg.pinv(J_real),acc_diff)
 
@@ -67,11 +66,12 @@ class RneAlgorithm(PinocchioWrapper):
         # self.logger.info("ddq: {}".format(ddq))
         # self.logger.info("acc:{}".format(acc))
         
-        return q,dq
+        return dq
         
         
 
-    def get_acceleration(self,q,dq):
+    def get_acceleration(self,dq):
+        q=self.pinIntegrate(self.q,dq)
         return self.Kp*(self.q[7:] - q[7:]) + self.Kd*(self.dq_curr[6:]-dq[6:]) 
       
     

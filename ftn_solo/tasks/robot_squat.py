@@ -180,30 +180,28 @@ class RobotMove(TaskBase):
     def compute_control(self, t, position, velocity,sensors):
 
         self.joint_controller.compute_kinematics(position,velocity)
-        nq = np.zeros(19)
+        # nJ = np.zeros(3,18)
         ndq = np.zeros(18)
         if not self.start:
             for x,leg in enumerate(["FL", "FR", "HL", "HR"]):
 
-                q,dq = self.joint_controller.compute_acceleration(leg,self.steps[x],0,0)
-                nq += q
+                dq = self.joint_controller.compute_acceleration(leg,self.steps[x],0,0)
                 ndq += dq
 
-            ddq = self.joint_controller.get_acceleration(nq,ndq)
+            ddq = self.joint_controller.get_acceleration(ndq)
             self.logger.info("Final ddq: {}".format(ddq))
             tourques = self.joint_controller.get_tourque(ndq,ddq)
-
+            return tourques
 
   
         else:
             for leg in ["FL", "FR", "HL", "HR"]:
                 pos,vel,acc = self.get_trajectory(t, leg, 1,1)
                 pos_mS3 = self.pin_robot.moveSE3(self.R_y,pos)
-                q,dq = self.joint_controller.compute_acceleration(leg,pos_mS3,vel,acc)
-                nq += q
+                dq = self.joint_controller.compute_acceleration(leg,pos_mS3,vel,acc)
                 ndq += dq
 
-            ddq = self.joint_controller.get_acceleration(nq,ndq)
+            ddq = self.joint_controller.get_acceleration(ndq)
             self.logger.info("Final ddq: {}".format(ddq))
             tourques = self.joint_controller.get_tourque(ndq,ddq)
             
