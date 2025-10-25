@@ -55,7 +55,7 @@ class RneAlgorithm(PinocchioWrapper):
 
         ref_acc =acc + self.Kp * frame_pos + self.Kd * vel_diff
         frame_acc = ref_acc - ades.linear   
-        ddq = np.dot(np.linalg.pinv(J_real), frame_acc)
+        ddq = np.dot(np.linalg.pinv(J_real), frame_acc - np.dot(J_dot, dq))
         self.J_real += J_real
         tau_g = np.dot(J_real.T,self.force_g)
         self.tau_g += tau_g.flatten()

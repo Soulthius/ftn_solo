@@ -97,6 +97,7 @@ class PinocchioWrapper(object):
         # self.logger.info("Ades: {}".format(ades))
         
         self.J[:, :6] = 0
+        self.J_dot[:, :6] = 0
       
      
         return  self.J[:3,:], J_dot[:3,:],ades
